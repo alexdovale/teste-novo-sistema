@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Gerenciamento de Pauta - SIGEP</title>
+
+    <!-- Ícones e Manifesto -->
+    <link rel="icon" type="image/png" href="https://alexdovale.github.io/ponto.codoc/imagem.png">
+    <meta name="theme-color" content="#16a34a"/>
+    <link rel="manifest" href="manifest.json">
+
+    <!-- CSS Externo (Estilos Visuais) -->
+    <link rel="stylesheet" href="./assets/css/style.css">
+
+    <!-- Bibliotecas Externas (CDNs) -->
+    <!-- Gráficos -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Geração de PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
+    <!-- EmailJS -->
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+    
+    <!-- Fonte Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body class="p-4 md:p-8 bg-gray-100 font-sans text-gray-900">
+
+    <!-- TELA DE CARREGAMENTO -->
+    <div id="loading-container" class="loading-container fixed inset-0 flex flex-col items-center justify-center bg-white z-50">
+        <div class="loader ease-linear rounded-full border-4 border-t-4 border-gray-200 h-12 w-12 mb-4"></div>
+        <p class="text-center text-gray-500 font-semibold">Carregando Sistema...</p>
+    </div>
+
+    <!-- TELA DE LOGIN -->
+    <div id="login-container" class="hidden min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+        <div class="max-w-md w-full space-y-8 bg-white p-10 rounded-xl shadow-2xl">
+            <div class="text-center">
+                <img class="mx-auto h-24 w-auto" src="https://alexdovale.github.io/ponto.codoc/imagem.png" alt="Logo SIGEP">
+                <h2 class="mt-6 text-3xl font-extrabold text-gray-900">Bem-vindo ao SIGEP</h2>
+                <p class="mt-2 text-sm text-gray-600">Sistema de Gerenciamento de Pauta</p>
+            </div>
+            
+            <form class="mt-8 space-y-6" id="login-form">
+                <div class="rounded-md shadow-sm -space-y-px">
+                    <div>
+                        <label for="login-email" class="sr-only">E-mail</label>
+                        <input id="login-email" name="email" type="email" autocomplete="email" required class="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-green-500 focus:border-green-500 focus:z-10 sm:text-sm" placeholder="E-mail Institucional">
+                    </div>
+                    <div>
+                        <label for="login-password" class="sr-only">Senha</label>
+                        <input id="login-password" name="password" type="password" autocomplete="current-password" required class="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-green-500 focus:border-green-500 focus:z-10 sm:text-sm" placeholder="Senha">
+                    </div>
+                </div>
+
+                <div>
+                    <button type="submit" class="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors">
+                        Entrar no Sistema
+                    </button>
+                </div>
+            </form>
+
+            <div class="text-center space-y-2">
+                <a href="#" id="show-register-link" class="font-medium text-green-600 hover:text-green-500 block">Não tem conta? Cadastre-se</a>
+                <a href="#" id="forgot-password-link" class="text-sm text-gray-500 hover:text-gray-700 block">Esqueceu a senha?</a>
+            </div>
+            
+            <!-- RODAPÉ COM LINKS ÚTEIS (Páginas Externas) -->
+            <div class="mt-8 pt-6 border-t border-gray-100 flex justify-center items-center gap-3 text-xs text-gray-400">
+                <a href="pages/manual.html" target="_blank" class="hover:text-green-600 hover:underline flex items-center gap-1">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
+                    Manual
+                </a>
+                <span>|</span>
+                <a href="pages/politica.html" target="_blank" class="hover:text-green-600 hover:underline">Política</a>
+                <span>|</span>
+                <a href="pages/termos.html" target="_blank" class="hover:text-green-600 hover:underline">Termos</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- TELA DE CADASTRO -->
+    <div id="register-container" class="hidden min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+        <div class="max-w-md w-full space-y-8 bg-white p-10 rounded-xl shadow-2xl">
+            <div class="text-center">
+                <h2 class="mt-6 text-3xl font-extrabold text-gray-900">Criar Nova Conta</h2>
+                <p class="text-sm text-gray-500">Preencha seus dados para solicitar acesso</p>
+            </div>
+            <form class="mt-8 space-y-6" id="register-form">
+                <div class="rounded-md shadow-sm -space-y-px">
+                    <div><label for="reg-name" class="sr-only">Nome Completo</label><input id="reg-name" type="text" required class="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-green-500 focus:border-green-500 focus:z-10 sm:text-sm" placeholder="Nome Completo"></div>
+                    <div><label for="reg-email" class="sr-only">Email</label><input id="reg-email" type="email" required class="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-green-500 focus:border-green-500 focus:z-10 sm:text-sm" placeholder="Email Institucional"></div>
+                    <div><label for="reg-password" class="sr-only">Senha</label><input id="reg-password" type="password" required class="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-green-500 focus:border-green-500 focus:z-10 sm:text-sm" placeholder="Senha (mínimo 6 caracteres)"></div>
+                </div>
+                <div><button type="submit" class="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">Cadastrar</button></div>
+            </form>
+            <div class="text-center"><a href="#" id="back-to-login-link" class="font-medium text-green-600 hover:text-green-500">Voltar para Login</a></div>
+        </div>
+    </div>
+
+    <!-- TELA PENDENTE (Aprovação) -->
+    <div id="pending-container" class="hidden min-h-screen flex items-center justify-center bg-yellow-50">
+        <div class="text-center p-8 bg-white rounded-lg shadow-lg max-w-md border border-yellow-200">
+            <svg class="mx-auto h-16 w-16 text-yellow-500 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+            <h2 class="text-2xl font-bold text-gray-900">Cadastro em Análise</h2>
+            <p class="mt-2 text-gray-600">Sua conta foi criada com sucesso, mas aguarda aprovação do administrador para acessar as pautas.</p>
+            <div class="mt-6 space-y-2">
+                <button id="check-status-btn" class="w-full bg-yellow-500 text-white font-bold py-2 px-4 rounded hover:bg-yellow-600 transition">Verificar Status</button>
+                <button id="logout-pending-btn" class="w-full text-gray-500 hover:text-gray-700 py-2">Sair</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- TELA SELEÇÃO DE PAUTA -->
+    <div id="pauta-selection-container" class="hidden max-w-5xl mx-auto py-10 px-4">
+        <header class="flex flex-col md:flex-row justify-between items-center mb-8 gap-4 border-b pb-6">
+            <div>
+                <h1 class="text-3xl font-bold text-gray-800">Minhas Pautas</h1>
+                <p class="text-gray-500 text-sm">Selecione uma pauta para iniciar o atendimento</p>
+            </div>
+            <div class="flex gap-3">
+                <button id="create-new-pauta-btn" class="bg-green-600 text-white px-5 py-2.5 rounded-lg hover:bg-green-700 shadow-md flex items-center gap-2 font-medium transition">
+                    <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg> 
+                    Nova Pauta
+                </button>
+                <button id="logout-selection-btn" class="text-red-500 hover:text-red-700 hover:bg-red-50 px-4 py-2 rounded-lg font-semibold transition">Sair</button>
+            </div>
+        </header>
+        
+        <!-- Lista de Pautas (Injetada via JS) -->
+        <div id="pauta-list" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+        
+        <footer class="mt-12 text-center pt-6 border-t border-gray-200">
+            <div class="flex justify-center gap-6 text-sm text-gray-400">
+                <a href="pages/manual.html" target="_blank" class="hover:text-green-600">Manual do Usuário</a>
+                <a href="pages/politica.html" target="_blank" class="hover:text-green-600">Política de Privacidade</a>
+            </div>
+            <p class="mt-2 text-xs text-gray-300">&copy; SIGEP 2025</p>
+        </footer>
+    </div>
+
+    <!-- TELA PRINCIPAL (APP / KANBAN) -->
+    <div id="app-container" class="hidden h-screen flex flex-col bg-gray-100">
+        <!-- Header do App -->
+        <header class="bg-white shadow-sm px-6 py-3 flex justify-between items-center z-20 flex-shrink-0 border-b border-gray-200">
+            <div class="flex items-center gap-4">
+                <button id="back-to-pautas-btn" class="text-gray-400 hover:text-green-600 transition p-1 rounded-full hover:bg-gray-50" title="Voltar para Seleção">
+                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
+                </button>
+                <div>
+                    <h1 class="text-xl font-bold text-gray-800 flex items-center gap-2">
+                        <span id="header-pauta-title">Carregando...</span>
+                        <!-- Botão Ajuda Rápida -->
+                        <button onclick="window.open('pages/manual.html', '_blank')" class="text-gray-300 hover:text-blue-500 transition" title="Abrir Manual">
+                            <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                        </button>
+                    </h1>
+                    <p class="text-xs text-gray-500 flex items-center gap-1">
+                        <span class="w-2 h-2 rounded-full bg-green-500 inline-block"></span>
+                        <span id="current-user-display">Usuário</span>
+                    </p>
+                </div>
+            </div>
+
+            <!-- Toolbar -->
+            <div class="flex items-center gap-3">
+                <div class="relative hidden md:block group">
+                    <input type="search" id="global-search" placeholder="Buscar na pauta..." class="pl-9 pr-4 py-1.5 rounded-full border border-gray-300 text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none w-48 transition-all group-hover:w-64 bg-gray-50 focus:bg-white">
+                    <svg class="w-4 h-4 text-gray-400 absolute left-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                </div>
+
+                <div class="h-6 w-px bg-gray-200 mx-2"></div>
+
+                <button id="stats-btn" class="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-full transition" title="Estatísticas e Relatórios">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+                </button>
+                <button id="share-pauta-btn" class="p-2 text-gray-500 hover:text-purple-600 hover:bg-purple-50 rounded-full transition" title="Link Público / TV">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
+                </button>
+                <button id="notes-btn" class="p-2 text-gray-500 hover:text-yellow-600 hover:bg-yellow-50 rounded-full transition" title="Bloco de Notas">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                </button>
+                
+                <button id="add-assisted-btn" class="ml-2 bg-green-600 text-white px-5 py-2 rounded-full hover:bg-green-700 shadow-md font-bold text-sm flex items-center gap-1 transition transform hover:scale-105">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg> 
+                    Adicionar
+                </button>
+            </div>
+        </header>
+
+        <!-- Barra de Resumo -->
+        <div class="bg-white border-b px-6 py-2 flex gap-8 text-xs font-semibold text-gray-500 shadow-sm z-10">
+            <span class="flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-yellow-500"></span> Aguardando: <strong id="count-aguardando" class="text-gray-800 text-sm">0</strong></span>
+            <span class="flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-blue-500"></span> Em Atendimento: <strong id="count-atendimento" class="text-gray-800 text-sm">0</strong></span>
+            <span class="flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-green-500"></span> Finalizados: <strong id="count-atendido" class="text-gray-800 text-sm">0</strong></span>
+        </div>
+
+        <!-- Área do Kanban -->
+        <main class="flex-1 overflow-x-auto overflow-y-hidden bg-gray-100 p-4">
+            <div class="flex h-full gap-4 min-w-[1000px] pb-2">
+                
+                <!-- Coluna 1: Aguardando -->
+                <div class="flex flex-col w-1/4 bg-gray-200 rounded-xl shadow-inner border border-gray-300">
+                    <div class="p-3 bg-gray-100 rounded-t-xl border-b border-gray-300 sticky top-0 flex justify-between items-center">
+                        <h2 class="font-bold text-gray-700 uppercase text-sm tracking-wide">Fila de Espera</h2>
+                        <span class="bg-yellow-100 text-yellow-800 text-xs px-2 py-0.5 rounded-full font-bold">Aguardando</span>
+                    </div>
+                    <div id="column-aguardando" class="column-content flex-1 p-2 overflow-y-auto space-y-2 custom-scrollbar" data-status="aguardando">
+                        <!-- Cards injetados via JS -->
+                    </div>
+                </div>
+
+                <!-- Coluna 2: Em Atendimento -->
+                <div class="flex flex-col w-1/4 bg-blue-50 rounded-xl shadow-sm border border-blue-200">
+                    <div class="p-3 bg-blue-100 rounded-t-xl border-b border-blue-200 sticky top-0 flex justify-between items-center">
+                        <h2 class="font-bold text-blue-800 uppercase text-sm tracking-wide">Chamados</h2>
+                        <span class="bg-white text-blue-600 text-xs px-2 py-0.5 rounded-full font-bold shadow-sm">Em Mesa</span>
+                    </div>
+                    <div id="column-emAtendimento" class="column-content flex-1 p-2 overflow-y-auto space-y-2 custom-scrollbar" data-status="emAtendimento"></div>
+                </div>
+
+                <!-- Coluna 3: Atendidos -->
+                <div class="flex flex-col w-1/4 bg-green-50 rounded-xl shadow-sm border border-green-200">
+                    <div class="p-3 bg-green-100 rounded-t-xl border-b border-green-200 sticky top-0 flex justify-between items-center">
+                        <h2 class="font-bold text-green-800 uppercase text-sm tracking-wide">Concluídos</h2>
+                        <span class="bg-white text-green-600 text-xs px-2 py-0.5 rounded-full font-bold shadow-sm">Sucesso</span>
+                    </div>
+                    <div id="column-atendido" class="column-content flex-1 p-2 overflow-y-auto space-y-2 custom-scrollbar" data-status="atendido"></div>
+                </div>
+
+                <!-- Coluna 4: Faltosos -->
+                <div class="flex flex-col w-1/4 bg-gray-200 rounded-xl shadow-inner border border-gray-300 opacity-80 hover:opacity-100 transition-opacity">
+                    <div class="p-3 bg-gray-300 rounded-t-xl border-b border-gray-400 sticky top-0 flex justify-between items-center">
+                        <h2 class="font-bold text-gray-700 uppercase text-sm tracking-wide">Ausentes</h2>
+                        <span class="bg-gray-600 text-white text-xs px-2 py-0.5 rounded-full font-bold">Faltou</span>
+                    </div>
+                    <div id="column-faltoso" class="column-content flex-1 p-2 overflow-y-auto space-y-2 custom-scrollbar" data-status="faltoso"></div>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <!-- MODAIS DO SISTEMA -->
+
+    <!-- 1. Nova Pauta -->
+    <div id="create-pauta-modal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-60 flex items-center justify-center z-50 backdrop-blur-sm">
+        <div class="bg-white p-6 rounded-lg shadow-2xl w-full max-w-sm transform transition-all scale-100">
+            <h3 class="text-lg font-bold mb-4 text-gray-800">Nova Pauta de Atendimento</h3>
+            <form id="create-pauta-form">
+                <div class="mb-3">
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Nome da Pauta</label>
+                    <input type="text" id="new-pauta-name" class="w-full border border-gray-300 p-2 rounded focus:ring-2 focus:ring-green-500 outline-none" placeholder="Ex: Cível Manhã" required>
+                </div>
+                <div class="mb-5">
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Data</label>
+                    <input type="date" id="new-pauta-date" class="w-full border border-gray-300 p-2 rounded focus:ring-2 focus:ring-green-500 outline-none" required>
+                </div>
+                <div class="flex justify-end gap-2 border-t pt-4">
+                    <button type="button" onclick="document.getElementById('create-pauta-modal').classList.add('hidden')" class="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded">Cancelar</button>
+                    <button type="submit" class="px-4 py-2 text-sm bg-green-600 text-white font-bold rounded hover:bg-green-700 shadow-md">Criar Pauta</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 2. Adicionar Assistido -->
+    <div id="add-assisted-modal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-60 flex items-center justify-center z-50 backdrop-blur-sm">
+        <div class="bg-white p-6 rounded-lg shadow-2xl w-full max-w-md relative">
+            <button onclick="document.getElementById('add-assisted-modal').classList.add('hidden')" class="absolute top-4 right-4 text-gray-400 hover:text-red-500 text-xl">&times;</button>
+            <h3 class="text-xl font-bold mb-6 text-gray-800 border-b pb-2">Novo Atendimento</h3>
+            <form id="add-assisted-form" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700">Nome do Assistido</label>
+                    <input type="text" id="assisted-name" class="mt-1 block w-full border border-gray-300 rounded-md p-2.5 focus:ring-green-500 focus:border-green-500 outline-none shadow-sm" placeholder="Nome Completo" required>
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700">Assunto / Demanda</label>
+                    <input list="subject-list" id="assisted-subject" class="mt-1 block w-full border border-gray-300 rounded-md p-2.5 focus:ring-green-500 focus:border-green-500 outline-none shadow-sm" placeholder="Comece a digitar..." autocomplete="off">
+                    <datalist id="subject-list"></datalist>
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700">Prioridade</label>
+                    <select id="assisted-priority" class="mt-1 block w-full border border-gray-300 rounded-md p-2.5 focus:ring-green-500 focus:border-green-500 outline-none shadow-sm bg-white">
+                        <option value="Mínima">Normal / Mínima</option>
+                        <option value="Média">Prioridade Média (Idoso 60+, Gestante)</option>
+                        <option value="Máxima">Prioridade Máxima (80+, Deficiência)</option>
+                        <option value="URGENTE" class="text-red-600 font-bold">URGENTE (Risco/Prazo)</option>
+                    </select>
+                </div>
+                <div class="pt-4">
+                    <button type="submit" class="w-full bg-green-600 text-white font-bold py-3 rounded-md hover:bg-green-700 shadow-lg transform transition active:scale-95">Adicionar à Fila</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 3. Modal Detalhes (Complexo) -->
+    <div id="documents-modal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-5xl flex flex-col max-h-[90vh] overflow-hidden">
+            <div class="flex justify-between items-center p-5 border-b bg-gray-50">
+                <div>
+                    <h3 class="text-xl font-bold text-gray-800" id="documents-assisted-name">Nome</h3>
+                    <p class="text-sm text-gray-500">Gestão de Documentos e Processo</p>
+                </div>
+                <button id="close-documents-modal-btn" class="text-gray-400 hover:text-red-500 text-3xl leading-none">&times;</button>
+            </div>
+
+            <div class="flex-1 overflow-y-auto p-6 bg-gray-50 custom-scrollbar">
+                <!-- Visão 1: Seleção -->
+                <div id="document-action-selection" class="space-y-4">
+                    <div class="bg-blue-50 border border-blue-200 p-4 rounded-lg mb-4 text-blue-800 text-sm">
+                        Selecione o tipo de ação para carregar o checklist de documentos automaticamente.
+                    </div>
+                    <input type="text" id="checklist-search" placeholder="🔍 Filtrar tipo de ação..." class="w-full p-3 border rounded-lg shadow-sm focus:ring-2 focus:ring-blue-400 outline-none">
+                    <div class="action-grid grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3"></div>
+                </div>
+
+                <!-- Visão 2: Checklist -->
+                <div id="document-checklist-view" class="hidden flex-col h-full">
+                    <div class="flex items-center gap-2 mb-4">
+                        <button id="back-to-action-selection-btn" class="text-blue-600 hover:bg-blue-50 px-3 py-1 rounded transition text-sm font-semibold">← Voltar</button>
+                        <h4 class="font-bold text-lg text-gray-800 pl-4 border-l-2 border-gray-300" id="checklist-title">Título</h4>
+                    </div>
+                    <div id="checklist-container" class="bg-white p-6 rounded-lg border shadow-sm space-y-6"></div>
+                </div>
+            </div>
+
+            <div class="p-4 border-t bg-white flex justify-between items-center rounded-b-xl shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)]">
+                <button id="print-checklist-btn" class="text-gray-600 hover:text-gray-900 text-sm font-semibold flex items-center gap-2 px-3 py-2 rounded hover:bg-gray-100 border border-transparent hover:border-gray-200 transition">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg> 
+                    Gerar PDF
+                </button>
+                <div class="flex gap-3">
+                    <button id="cancel-checklist-btn" class="px-5 py-2 text-gray-600 hover:bg-gray-100 rounded-lg border border-gray-300 font-medium">Cancelar</button>
+                    <button id="save-checklist-btn" class="px-6 py-2 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700 shadow-md transform active:scale-95 transition">Salvar Tudo</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 4. Modal Estatísticas (Container Dinâmico) -->
+    <div id="statistics-modal" class="hidden fixed inset-0 bg-white z-[60] flex flex-col"></div>
+
+    <!-- 5. Modal Anotações -->
+    <div id="notes-modal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-60 flex items-center justify-center z-50 backdrop-blur-sm">
+        <div class="bg-white p-6 rounded-xl shadow-2xl w-full max-w-lg border border-yellow-200 bg-yellow-50">
+            <div class="flex justify-between items-start mb-4">
+                <h3 class="text-lg font-bold text-yellow-800">Bloco de Notas da Pauta</h3>
+                <span class="text-xs bg-yellow-200 text-yellow-800 px-2 py-1 rounded">Local</span>
+            </div>
+            <textarea id="pauta-notes" class="w-full h-48 border border-yellow-300 p-3 rounded-lg text-sm mb-4 bg-white focus:ring-2 focus:ring-yellow-400 outline-none font-medium text-gray-700 resize-none" placeholder="Digite aqui anotações rápidas sobre a pauta... (Salvo apenas neste navegador)"></textarea>
+            <div class="flex justify-between items-center">
+                <button id="send-notes-email-btn" class="text-blue-600 hover:underline text-sm flex items-center gap-1">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg> 
+                    Enviar para meu e-mail
+                </button>
+                <div class="flex gap-2">
+                    <button onclick="document.getElementById('notes-modal').classList.add('hidden')" class="px-4 py-2 text-gray-600 hover:bg-yellow-100 rounded">Fechar</button>
+                    <button id="save-notes-btn" class="px-5 py-2 bg-yellow-600 text-white font-bold rounded hover:bg-yellow-700 shadow-sm">Salvar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SCRIPT PRINCIPAL (Módulo de Controle) -->
+    <script type="module" src="./assets/js/main.js"></script>
+
+</body>
+</html>

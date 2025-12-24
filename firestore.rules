@@ -1,0 +1,104 @@
+rules_version = '2';
+
+service cloud.firestore {
+match /databases/{database}/documents {
+
+// --- Funções Auxiliares (Lógica de Permissões) ---
+
+// Busca dados do usuário atual no banco para verificar seu perfil
+function getUserData() {
+  return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+} 
+
+// Verifica se é Admin ou Superadmin
+function isAdmin() {
+  return request.auth != null && (getUserData().role == 'admin' || getUserData().role == 'superadmin');
+}
+
+// Verifica se o usuário tem status 'approved' (aprovado)
+function isApproved() {
+  return request.auth != null && getUserData().status == 'approved';
+}
+
+// Verifica se o usuário está na lista de membros da pauta específica
+function isMember(pautaId) {
+   return request.auth != null && request.auth.uid in get(/databases/$(database)/documents/pautas/$(pautaId)).data.members;
+}
+// ------------------------------------
+
+// 1. Coleção de Usuários
+match /users/{userId} {
+  // Usuários logados podem ler perfis (necessário para listar membros)
+  allow read: if request.auth != null;
+  // Usuário só cria seu próprio perfil
+  allow create: if request.auth.uid == userId;
+  // Admin ou o próprio usuário podem atualizar
+  allow update: if isAdmin() || request.auth.uid == userId;
+}
+
+// 2. Coleção de Pautas
+match /pautas/{pautaId} {
+  
+  // *** LEITURA PÚBLICA ***
+  // Permite leitura pública (Necessário para links compartilhados funcionarem para quem não tem conta)
+  allow read: if true;
+  
+  // Criação: Apenas usuários logados e aprovados
+  allow create: if isApproved();
+  
+  // Deleção: Apenas Dono da pauta ou Admin
+  allow delete: if request.auth.uid == resource.data.owner || isAdmin();
+  
+  // Edição: Membros da pauta ou Admin (para mudar nome, fechar pauta, etc)
+  allow update: if (request.auth != null && request.auth.uid in resource.data.members) || isAdmin();
+
+  // 3. Subcoleção de Colaboradores (Lista de Presença)
+  match /collaborators/{collaboratorId} {
+    // Leitura pública para exibir nomes nos links externos
+    allow read: if true;
+    // Escrita restrita a membros aprovados e admins
+    allow write: if (isMember(pautaId) && isApproved()) || isAdmin();
+  }
+
+  // 4. Subcoleção de Atendimentos (O Coração do Sistema)
+  match /attendances/{attendanceId} {
+    
+    // Leitura pública para o painel de acompanhamento e link de delegação
+    allow read: if true;
+
+    // Criação e Deleção: Apenas membros logados e aprovados
+    // (Isso impede que alguém de fora crie "fantasmas" ou apague registros)
+    allow create, delete: if request.auth != null && ((isMember(pautaId) && isApproved()) || isAdmin());
+
+    // Atualização (UPDATE) - A Regra de Ouro:
+    allow update: if 
+      // CENÁRIO A: Usuário Logado, Aprovado e Membro (Pode alterar tudo)
+      (request.auth != null && ((isMember(pautaId) && isApproved()) || isAdmin()))
+      
+      ||
+      
+      // CENÁRIO B: Usuário Externo (Link de E-mail / Deslogado)
+      // Só permitimos a atualização se ele estiver alterando APENAS campos específicos de finalização.
+      // Isso impede que alguém mude o nome ou CPF do assistido via script malicioso.
+      (request.auth == null 
+       && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['status', 'attendedTime', 'attendant', 'finalizadoPeloColaborador', 'isConfirmed', 'confirmationDetails'])
+      );
+  }
+  
+  // 5. Subcoleção Fila de Distribuição (Legado/Extra)
+  match /distribution_queue/{itemId} {
+    allow read: if true;
+    allow write: if (isMember(pautaId) && isApproved()) || isAdmin() || request.auth == null;
+  }
+}
+
+// Outros (Ações Legais - Legado)
+match /legalActions/{actionId} {
+  allow read: if request.auth != null;
+  allow write: if isAdmin();
+}
+
+
+}
+}
