@@ -1,81 +1,299 @@
-// assets/js/main.js
-// CONTROLADOR PRINCIPAL: Gerencia o Kanban, Eventos, Drag&Drop e Lógica de Tela.
+/**
+ * ARQUIVO UNIFICADO - SIGEP
+ * Contém: Configuração Firebase, Autenticação, Utils, Dados, Detalhes, Estatísticas e Lógica Principal.
+ */
 
-// 1. IMPORTAÇÕES
-import { db, auth } from './firebase-init.js';
-import { loginUser, registerUser, logoutUser, monitorAuthState, recoverPassword, reauthenticateUser } from './auth-service.js';
-import { setupDetailsModal, openDetailsModal } from './detalhes.js';
-import { renderStatisticsModal } from './estatisticas.js';
-import { flatSubjects } from './assuntos.js';
-import { normalizeText, showNotification, copyToClipboard, formatTime } from './utils.js';
-
-// Imports do Firestore
+// --- 1. IMPORTAÇÕES GERAIS DO FIREBASE ---
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
 import { 
+    getAuth, 
+    signInWithEmailAndPassword, 
+    createUserWithEmailAndPassword, 
+    signOut, 
+    sendPasswordResetEmail,
+    onAuthStateChanged,
+    EmailAuthProvider,
+    reauthenticateWithCredential
+} from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+import { 
+    getFirestore, 
     collection, doc, onSnapshot, addDoc, updateDoc, deleteDoc, 
     writeBatch, getDoc, setDoc, query, where, getDocs, 
-    arrayUnion, arrayRemove, orderBy 
+    arrayUnion, arrayRemove, orderBy, serverTimestamp 
 } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-// --- VARIÁVEIS DE ESTADO GLOBAL ---
-let currentPautaId = null;
-let currentPautaData = null; // Dados da pauta atual (nome, membros, owner)
-let currentUserName = '';
-let currentUserId = null;
-let allAssisted = []; // Lista local de assistidos para filtragem
-let unsubscribeFromAttendances = null; // Para parar de ouvir quando sair da pauta
+// --- 2. CONFIGURAÇÃO E INICIALIZAÇÃO DO FIREBASE ---
+const firebaseConfig = {
+    apiKey: "AIzaSyCrLwXmkxgeVoB8TwRI7pplCVQETGK0zkE",
+    authDomain: "pauta-ce162.firebaseapp.com",
+    projectId: "pauta-ce162",
+    storageBucket: "pauta-ce162.appspot.com",
+    messagingSenderId: "87113750208",
+    appId: "1:87113750208:web:4abba0024f4d4af699bf25"
+};
 
-// --- INICIALIZAÇÃO ---
-document.addEventListener('DOMContentLoaded', () => {
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+// --- 3. UTILS (Funções Auxiliares) ---
+const normalizeText = (str) => {
+    if (!str) return '';
+    return str.toString().normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+};
+
+const showNotification = (message, type = 'success') => {
+    const colors = { 
+        info: 'bg-blue-500', 
+        error: 'bg-red-500', 
+        success: 'bg-green-600',
+        warning: 'bg-yellow-500'
+    };
+    const colorClass = colors[type] || colors.success;
+    const notification = document.createElement('div');
+    notification.className = `fixed top-5 right-5 ${colorClass} text-white py-3 px-6 rounded-lg shadow-lg z-[9999] transition-all duration-300 transform translate-x-full opacity-0 flex items-center gap-2`;
     
-    // Inicializa EmailJS (se disponível)
-    if (window.emailjs) emailjs.init("aGL-Q2UJcD2tDpUKq"); // Substitua pela sua Public Key se for diferente
+    let icon = '';
+    if (type === 'success') icon = '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>';
+    if (type === 'error') icon = '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>';
+    
+    notification.innerHTML = `${icon}<span>${message}</span>`;
+    document.body.appendChild(notification);
 
-    // Configura o Modal de Detalhes (Injeção de dependências)
-    setupDetailsModal({
-        db: db,
-        getUpdatePayload: (data) => data,
-        showNotification: showNotification
+    requestAnimationFrame(() => notification.classList.remove('translate-x-full', 'opacity-0'));
+    setTimeout(() => {
+        notification.classList.add('translate-x-full', 'opacity-0');
+        notification.addEventListener('transitionend', () => notification.remove());
+    }, 3500);
+};
+
+const formatTime = (timeStamp) => {
+    if (!timeStamp) return 'N/A';
+    let date;
+    if (typeof timeStamp === 'object' && timeStamp !== null && 'seconds' in timeStamp) {
+        date = new Date(timeStamp.seconds * 1000);
+    } else {
+        date = new Date(timeStamp);
+    }
+    if (isNaN(date.getTime()) || date.getTime() === 0) return 'N/A';
+    return date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+};
+
+const parseCurrency = (str) => {
+    if (!str) return 0;
+    return parseFloat(str.replace(/[^\d,]/g, '').replace(',', '.')) || 0;
+};
+
+const formatCurrency = (value) => {
+    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+};
+
+// --- 4. ASSUNTOS (Dados) ---
+const subjectTree = [
+    { text: "Orientação Jurídica", description: "Esclarecimentos gerais sobre direitos." },
+    { text: "Atendimento Jurídico Integral", description: "Serviço principal da Defensoria." },
+    { text: "Processos Cíveis", children: [
+        { text: "Ação de Obrigação de Fazer" }, { text: "Ação de Indenização" }, { text: "Revisional de Débito" }
+    ]},
+    { text: "Processos de Família", children: [
+        { text: "Alimentos", children: [{ text: "Fixação de Alimentos" }, { text: "Majoração" }, { text: "Alimentos Gravídicos" }] },
+        { text: "Divórcio", children: [{ text: "Divórcio Consensual" }, { text: "Divórcio Litigioso" }] },
+        { text: "União Estável" }, { text: "Guarda" }, { text: "Investigação de Paternidade" }
+    ]},
+    { text: "Processos Criminais", children: [{ text: "Defesa Criminal" }, { text: "Execução Penal" }] },
+    { text: "Infância e Juventude", children: [{ text: "Vaga em Escola" }] },
+    { text: "Saúde / Medicamentos", children: [{ text: "Acesso a Medicamentos" }] }
+];
+
+function flattenTreeWithObjects(nodes, parentPrefix = '') {
+    let flatList = [];
+    nodes.forEach(node => {
+        const currentValue = parentPrefix ? `${parentPrefix} > ${node.text}` : node.text;
+        flatList.push({ value: currentValue, description: node.description });
+        if (node.children) flatList = flatList.concat(flattenTreeWithObjects(node.children, currentValue));
     });
+    return flatList;
+}
+const flatSubjects = flattenTreeWithObjects(subjectTree);
 
-    // Inicia Monitoramento de Auth
-    initAuthMonitor();
-    
-    // Configura eventos globais (botões de login, cadastro, etc)
-    setupGlobalEventListeners();
-});
+// --- 5. AUTH SERVICE ---
+async function loginUser(email, password) {
+    try {
+        const userCredential = await signInWithEmailAndPassword(auth, email, password);
+        return { success: true, user: userCredential.user };
+    } catch (error) {
+        return { success: false, error: error };
+    }
+}
 
-// --- 1. GERENCIAMENTO DE AUTENTICAÇÃO E TELAS ---
+async function registerUser(name, email, password) {
+    try {
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        const user = userCredential.user;
+        await setDoc(doc(db, "users", user.uid), {
+            name: name, email: email, uid: user.uid, status: 'pending', role: 'user', createdAt: new Date().toISOString()
+        });
+        return { success: true, user: user };
+    } catch (error) {
+        return { success: false, error: error };
+    }
+}
 
-function initAuthMonitor() {
-    monitorAuthState((user, userData) => {
-        if (user && userData) {
-            currentUserId = user.uid;
-            currentUserName = userData.name;
-            
-            if (userData.status === 'approved') {
-                showScreen('pauta-selection');
-                loadUserPautas();
-            } else {
-                showScreen('pending-approval');
-            }
-        } else if (user && !userData) {
-            // Caso raro: User criado no Auth mas sem doc no Firestore
-            logoutUser();
-            showScreen('login');
+async function logoutUser() {
+    try { await signOut(auth); return { success: true }; } catch (error) { return { success: false, error }; }
+}
+
+function monitorAuthState(callback) {
+    onAuthStateChanged(auth, async (user) => {
+        if (user) {
+            try {
+                const userDoc = await getDoc(doc(db, "users", user.uid));
+                if (userDoc.exists()) callback(user, userDoc.data());
+                else callback(user, null);
+            } catch (err) { callback(user, null); }
         } else {
-            showScreen('login');
+            callback(null, null);
         }
     });
 }
 
-function showScreen(screenName) {
-    // Esconde todas as telas
-    ['login-container', 'register-container', 'pending-container', 'pauta-selection-container', 'app-container'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.classList.add('hidden');
-    });
+// --- 6. ESTATÍSTICAS (Resumido) ---
+function renderStatisticsModal(allAssisted, useDelegationFlow, pautaName) {
+    const modal = document.getElementById('statistics-modal');
+    if (!modal) return;
+    
+    // Configuração básica do modal
+    modal.style.display = 'flex';
+    modal.classList.remove('hidden');
+    modal.classList.add('bg-white', 'p-6', 'rounded-xl', 'shadow-2xl');
+    
+    // Cálculos
+    const atendidos = allAssisted.filter(a => a.status === 'atendido');
+    const faltosos = allAssisted.filter(a => a.status === 'faltoso');
+    
+    // Gerar HTML Simples
+    modal.innerHTML = `
+        <div class="flex flex-col h-full w-full max-w-4xl mx-auto bg-white rounded-lg relative">
+             <button onclick="document.getElementById('statistics-modal').classList.add('hidden')" class="absolute top-0 right-0 p-4 text-2xl text-gray-400 hover:text-red-500">&times;</button>
+             <h2 class="text-2xl font-bold mb-4">Estatísticas: ${pautaName}</h2>
+             
+             <div class="grid grid-cols-3 gap-4 mb-6">
+                <div class="bg-green-100 p-4 rounded text-center">
+                    <h3 class="text-xl font-bold text-green-700">${atendidos.length}</h3>
+                    <p class="text-sm">Atendidos</p>
+                </div>
+                <div class="bg-yellow-100 p-4 rounded text-center">
+                    <h3 class="text-xl font-bold text-yellow-700">${allAssisted.length - atendidos.length - faltosos.length}</h3>
+                    <p class="text-sm">Pendentes</p>
+                </div>
+                <div class="bg-red-100 p-4 rounded text-center">
+                    <h3 class="text-xl font-bold text-red-700">${faltosos.length}</h3>
+                    <p class="text-sm">Faltosos</p>
+                </div>
+             </div>
 
-    // Mostra a desejada
+             <div class="flex-1 overflow-auto bg-gray-50 p-4 rounded border">
+                <h3 class="font-bold mb-2">Detalhes por Assunto</h3>
+                <ul class="text-sm space-y-2">
+                    ${Object.entries(allAssisted.reduce((acc, a) => {
+                        const subj = a.subject || 'Outros';
+                        acc[subj] = (acc[subj] || 0) + 1;
+                        return acc;
+                    }, {})).map(([k, v]) => `<li><b>${k}:</b> ${v}</li>`).join('')}
+                </ul>
+             </div>
+        </div>
+    `;
+}
+
+// --- 7. DETALHES E CHECKLISTS ---
+// Dados resumidos de documentação
+const COMMON_DOCS = ['RG/CPF', 'Comprovante de Residência', 'Comprovante de Renda'];
+const documentsData = {
+    alimentos: { title: 'Ação de Alimentos', docs: [...COMMON_DOCS, 'Certidão de Nascimento da Criança', 'Lista de Gastos'] },
+    divorcio: { title: 'Divórcio', docs: [...COMMON_DOCS, 'Certidão de Casamento', 'Lista de Bens'] },
+    default: { title: 'Documentação Geral', docs: COMMON_DOCS }
+};
+
+let currentAssistedId = null;
+
+function openDetailsModal(config) {
+    const { assistedId, pautaId, allAssisted: list } = config;
+    currentAssistedId = assistedId;
+    currentPautaId = pautaId; // atualiza global
+    
+    const item = list.find(a => a.id === assistedId);
+    if(!item) return;
+
+    const modal = document.getElementById('documents-modal');
+    document.getElementById('documents-assisted-name').textContent = item.name;
+    
+    // Renderiza checklist simples
+    const container = document.getElementById('checklist-container');
+    if(container) {
+        container.innerHTML = `<h4 class="font-bold mb-2 text-gray-700">Checklist Rápido</h4>`;
+        COMMON_DOCS.forEach(docText => {
+            container.innerHTML += `
+                <label class="flex items-center space-x-2 mb-2">
+                    <input type="checkbox" class="rounded text-green-600"> <span>${docText}</span>
+                </label>`;
+        });
+        
+        // Botão Salvar
+        const btnSave = document.getElementById('save-checklist-btn');
+        if(btnSave) {
+            btnSave.onclick = async () => {
+                showNotification("Dados salvos localmente (Demo)", "success");
+                modal.classList.add('hidden');
+            };
+        }
+    }
+
+    modal.classList.remove('hidden');
+}
+
+// --- 8. LÓGICA PRINCIPAL (MAIN) ---
+
+let currentPautaId = null;
+let currentPautaData = null;
+let currentUserName = '';
+let currentUserId = null;
+let allAssisted = [];
+let unsubscribeFromAttendances = null;
+
+// Inicialização
+document.addEventListener('DOMContentLoaded', () => {
+    // EmailJS Init
+    if (window.emailjs) emailjs.init("aGL-Q2UJcD2tDpUKq");
+
+    // Monitoramento Auth
+    monitorAuthState((user, userData) => {
+        const loading = document.getElementById('loading-container');
+        if(loading) loading.classList.add('hidden');
+
+        if (user && userData) {
+            currentUserId = user.uid;
+            currentUserName = userData.name;
+            if (userData.status === 'approved') {
+                showScreen('pauta-selection');
+                loadUserPautas();
+                document.getElementById('current-user-display').textContent = userData.email;
+            } else {
+                showScreen('pending-approval');
+            }
+        } else {
+            showScreen('login');
+        }
+    });
+    
+    setupEventListeners();
+    setupDatalist();
+});
+
+function showScreen(screenName) {
+    const screens = ['login-container', 'register-container', 'pending-container', 'pauta-selection-container', 'app-container'];
+    screens.forEach(id => document.getElementById(id)?.classList.add('hidden'));
+
     const map = {
         'login': 'login-container',
         'register': 'register-container',
@@ -83,162 +301,75 @@ function showScreen(screenName) {
         'pauta-selection': 'pauta-selection-container',
         'app': 'app-container'
     };
-    
-    const target = document.getElementById(map[screenName]);
-    if (target) target.classList.remove('hidden');
+    document.getElementById(map[screenName])?.classList.remove('hidden');
 }
-
-// --- 2. GERENCIAMENTO DE PAUTAS (SELEÇÃO) ---
 
 async function loadUserPautas() {
-    const container = document.getElementById('pauta-list');
-    if (!container) return;
+    const listEl = document.getElementById('pauta-list');
+    listEl.innerHTML = '<div class="loader"></div>';
     
-    container.innerHTML = '<div class="loader mx-auto"></div>';
-
     try {
-        // Busca pautas onde sou dono
         const qOwner = query(collection(db, "pautas"), where("owner", "==", currentUserId));
-        // Busca pautas onde sou membro
         const qMember = query(collection(db, "pautas"), where("members", "array-contains", currentUserId));
-
-        const [snapOwner, snapMember] = await Promise.all([getDocs(qOwner), getDocs(qMember)]);
         
-        // Combina e remove duplicatas
-        const pautasMap = new Map();
-        snapOwner.forEach(d => pautasMap.set(d.id, {id: d.id, ...d.data(), role: 'Dono'}));
-        snapMember.forEach(d => pautasMap.set(d.id, {id: d.id, ...d.data(), role: 'Membro'}));
-
-        renderPautaList(Array.from(pautasMap.values()));
-
-    } catch (error) {
-        console.error("Erro ao carregar pautas:", error);
-        container.innerHTML = '<p class="text-red-500 text-center">Erro ao carregar pautas.</p>';
-    }
-}
-
-function renderPautaList(pautas) {
-    const container = document.getElementById('pauta-list');
-    container.innerHTML = '';
-
-    if (pautas.length === 0) {
-        container.innerHTML = '<p class="text-gray-500 text-center">Nenhuma pauta encontrada. Crie uma nova.</p>';
-        return;
-    }
-
-    pautas.forEach(pauta => {
-        const div = document.createElement('div');
-        div.className = "bg-white p-4 rounded-lg shadow hover:shadow-md transition cursor-pointer border-l-4 border-green-500 flex justify-between items-center";
-        div.innerHTML = `
-            <div>
-                <h3 class="font-bold text-gray-800 text-lg">${pauta.name}</h3>
-                <p class="text-sm text-gray-500">${pauta.role} • ${pauta.date || 'Sem data'}</p>
-            </div>
-            <button class="bg-green-100 text-green-700 px-3 py-1 rounded text-sm font-bold hover:bg-green-200">Entrar</button>
-        `;
-        div.addEventListener('click', () => enterPauta(pauta.id));
-        container.appendChild(div);
-    });
-}
-
-async function createPauta(name, date, isPublic) {
-    try {
-        const docRef = await addDoc(collection(db, "pautas"), {
-            name: name,
-            date: date,
-            isPublic: isPublic,
-            owner: currentUserId,
-            members: [currentUserId], // Dono é membro automaticamente
-            createdAt: new Date().toISOString(),
-            maskNames: false // Configuração padrão
+        const [snap1, snap2] = await Promise.all([getDocs(qOwner), getDocs(qMember)]);
+        const pautas = new Map();
+        
+        snap1.forEach(d => pautas.set(d.id, {id:d.id, ...d.data(), role:'Dono'}));
+        snap2.forEach(d => pautas.set(d.id, {id:d.id, ...d.data(), role:'Membro'}));
+        
+        listEl.innerHTML = '';
+        if(pautas.size === 0) listEl.innerHTML = '<p class="text-center text-gray-500 col-span-3">Nenhuma pauta encontrada.</p>';
+        
+        pautas.forEach(p => {
+            const div = document.createElement('div');
+            div.className = "bg-white p-6 rounded-xl shadow-md border-l-4 border-green-500 cursor-pointer hover:shadow-lg transition";
+            div.innerHTML = `<h3 class="font-bold text-lg">${p.name}</h3><p class="text-sm text-gray-500">${p.date}</p>`;
+            div.onclick = () => enterPauta(p.id);
+            listEl.appendChild(div);
         });
-        showNotification("Pauta criada com sucesso!", "success");
-        loadUserPautas();
-        return true;
-    } catch (error) {
-        console.error(error);
-        showNotification("Erro ao criar pauta.", "error");
-        return false;
+    } catch(e) {
+        console.error(e);
+        listEl.innerHTML = '<p class="text-red-500">Erro ao carregar pautas.</p>';
     }
 }
 
-async function enterPauta(pautaId) {
-    currentPautaId = pautaId;
-    
-    // Carregar dados da pauta (nome, configs)
-    const docSnap = await getDoc(doc(db, "pautas", pautaId));
-    if (docSnap.exists()) {
+async function enterPauta(id) {
+    currentPautaId = id;
+    const docSnap = await getDoc(doc(db, "pautas", id));
+    if(docSnap.exists()) {
         currentPautaData = docSnap.data();
         document.getElementById('header-pauta-title').textContent = currentPautaData.name;
         showScreen('app');
-        subscribeToKanban(pautaId);
-    } else {
-        showNotification("Pauta não encontrada.", "error");
+        subscribeKanban(id);
     }
 }
 
-// --- 3. KANBAN (LÓGICA PRINCIPAL) ---
-
-function subscribeToKanban(pautaId) {
-    if (unsubscribeFromAttendances) unsubscribeFromAttendances();
-
-    const q = collection(db, "pautas", pautaId, "attendances");
-    
-    unsubscribeFromAttendances = onSnapshot(q, (snapshot) => {
-        allAssisted = snapshot.docs.map(d => ({id: d.id, ...d.data()}));
+function subscribeKanban(id) {
+    if(unsubscribeFromAttendances) unsubscribeFromAttendances();
+    const q = collection(db, "pautas", id, "attendances");
+    unsubscribeFromAttendances = onSnapshot(q, (snap) => {
+        allAssisted = snap.docs.map(d => ({id: d.id, ...d.data()}));
         renderKanban(allAssisted);
-        updateStatisticsCounters(allAssisted);
-    }, (error) => {
-        console.error("Erro no listener:", error);
-        showNotification("Erro de conexão.", "error");
+        updateCounters(allAssisted);
     });
 }
 
-function renderKanban(assistidos) {
-    // 1. Limpar Colunas
+function renderKanban(list) {
     const cols = {
         'aguardando': document.getElementById('column-aguardando'),
         'emAtendimento': document.getElementById('column-emAtendimento'),
         'atendido': document.getElementById('column-atendido'),
         'faltoso': document.getElementById('column-faltoso')
     };
-
-    // Verifica se elementos existem antes de limpar
-    Object.values(cols).forEach(el => { if(el) el.innerHTML = ''; });
-    if (!cols.aguardando) return; // Se não carregou o DOM ainda
-
-    // 2. Ordenação Melhorada
-    // Aguardando: Prioridade (URGENTE > Máxima > Média > Mínima) > Chegada
-    const priorityValues = { 'URGENTE': 4, 'Máxima': 3, 'Média': 2, 'Mínima': 1 };
     
-    const aguardandoList = assistidos.filter(a => a.status === 'aguardando').sort((a, b) => {
-        const pA = priorityValues[a.priority] || 0;
-        const pB = priorityValues[b.priority] || 0;
-        if (pA !== pB) return pB - pA; // Maior prioridade primeiro
-        return (a.arrivalTime || '').localeCompare(b.arrivalTime || ''); // Mais antigo primeiro
-    });
-
-    // Outros: Ordem Cronológica Reversa (Mais recentes no topo)
-    const emAtendimentoList = assistidos.filter(a => a.status === 'emAtendimento').sort((a, b) => (b.inAttendanceTime || '').localeCompare(a.inAttendanceTime || ''));
-    const atendidoList = assistidos.filter(a => a.status === 'atendido').sort((a, b) => (b.attendedTime || '').localeCompare(a.attendedTime || ''));
-    const faltosoList = assistidos.filter(a => a.status === 'faltoso').sort((a, b) => (b.updatedAt || '').localeCompare(a.updatedAt || ''));
-
-    // 3. Renderização
-    renderColumn(cols.aguardando, aguardandoList);
-    renderColumn(cols.emAtendimento, emAtendimentoList);
-    renderColumn(cols.atendido, atendidoList);
-    renderColumn(cols.faltoso, faltosoList);
-}
-
-function renderColumn(container, list) {
-    if (list.length === 0) {
-        container.innerHTML = '<div class="text-center text-gray-400 p-4 italic text-sm">Vazio</div>';
-        return;
-    }
+    // Limpar
+    Object.values(cols).forEach(c => { if(c) c.innerHTML = ''; });
+    if(!cols.aguardando) return;
 
     list.forEach(item => {
         const card = createCard(item);
-        container.appendChild(card);
+        if(cols[item.status]) cols[item.status].appendChild(card);
     });
 }
 
@@ -246,306 +377,138 @@ function createCard(item) {
     const div = document.createElement('div');
     div.id = item.id;
     div.draggable = true;
+    div.className = "bg-white p-3 rounded shadow mb-2 border-l-4 " + (item.priority === 'URGENTE' ? 'border-red-500' : 'border-green-500') + " cursor-grab active:cursor-grabbing hover:shadow-md transition relative group";
     
-    // Classes de Prioridade
-    let borderClass = 'border-l-4 ';
-    if (item.priority === 'URGENTE') borderClass += 'border-red-500 bg-red-50';
-    else if (item.priority === 'Máxima') borderClass += 'border-green-500';
-    else if (item.priority === 'Média') borderClass += 'border-orange-400';
-    else borderClass += 'border-gray-400';
-
-    div.className = `bg-white p-3 rounded shadow-sm mb-2 cursor-grab active:cursor-grabbing hover:shadow-md transition relative ${borderClass}`;
-
-    // Conteúdo do Card
-    const time = formatTime(item.arrivalTime);
-    const subject = item.subject || 'Sem assunto';
-    
-    // Botão de Deletar (Só aparece se hover)
-    const deleteBtn = `<button class="delete-btn absolute top-1 right-1 text-gray-300 hover:text-red-500" onclick="handleDelete('${item.id}')">&times;</button>`;
-
-    // Ícones e Badges
-    const roomBadge = item.room ? `<span class="bg-blue-100 text-blue-800 text-xs px-1 rounded font-bold ml-1">Sala ${item.room}</span>` : '';
-    const confirmIcon = item.isConfirmed ? `<span class="text-green-500 ml-1" title="Confirmado">✓</span>` : '';
-
     div.innerHTML = `
-        ${deleteBtn}
-        <div class="flex justify-between items-start mb-1">
-            <span class="font-bold text-gray-800 truncate pr-4">${item.name} ${confirmIcon}</span>
-            <span class="text-xs font-mono text-gray-500 bg-gray-100 px-1 rounded">${time}</span>
+        <div class="flex justify-between">
+            <span class="font-bold truncate pr-2">${item.name}</span>
+            <span class="text-xs bg-gray-100 px-1 rounded">${formatTime(item.arrivalTime || item.createdAt)}</span>
         </div>
-        <div class="text-xs text-gray-600 mb-2 truncate">${subject} ${roomBadge}</div>
-        
-        <!-- Ações Rápidas -->
-        <div class="flex justify-end gap-2 mt-2 border-t pt-2">
-            <button class="text-blue-600 hover:bg-blue-50 p-1 rounded" title="Detalhes" onclick="handleDetails('${item.id}')">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
-            </button>
-            ${getCardActions(item)}
+        <div class="text-xs text-gray-500 truncate">${item.subject || 'Sem assunto'}</div>
+        <div class="mt-2 flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition">
+             <button class="text-blue-500 hover:text-blue-700 text-xs" onclick="window.handleDetails('${item.id}')">Detalhes</button>
+             ${item.status === 'aguardando' ? `<button class="text-green-600 text-xs font-bold" onclick="window.moveTo('${item.id}', 'emAtendimento')">Chamar</button>` : ''}
+             ${item.status === 'emAtendimento' ? `<button class="text-purple-600 text-xs font-bold" onclick="window.moveTo('${item.id}', 'atendido')">Finalizar</button>` : ''}
         </div>
     `;
 
-    // Eventos de Drag & Drop
-    div.addEventListener('dragstart', (e) => {
+    div.ondragstart = (e) => {
         e.dataTransfer.setData('text/plain', item.id);
         div.classList.add('opacity-50');
-        div.classList.add('transform', 'scale-95'); // Efeito visual
-    });
-    
-    div.addEventListener('dragend', () => {
-        div.classList.remove('opacity-50');
-        div.classList.remove('transform', 'scale-95');
-    });
+    };
+    div.ondragend = () => div.classList.remove('opacity-50');
 
     return div;
 }
 
-function getCardActions(item) {
-    // Retorna botões diferentes dependendo do status
-    if (item.status === 'aguardando') {
-        return `
-            <button class="text-green-600 hover:bg-green-50 p-1 rounded" title="Chamar" onclick="handleMoveToAttendance('${item.id}')">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
-            </button>
-        `;
-    }
-    if (item.status === 'emAtendimento') {
-        return `
-            <button class="text-purple-600 hover:bg-purple-50 p-1 rounded" title="Finalizar" onclick="handleFinish('${item.id}')">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
-            </button>
-        `;
-    }
-    return '';
-}
-
-// --- 4. AÇÕES DOS CARDS (FUNÇÕES GLOBAIS) ---
-
-// Precisamos expor essas funções para o window porque os botões são gerados como strings HTML onclick="..."
-window.handleDetails = (id) => openDetailsModal({ assistedId: id, pautaId: currentPautaId, allAssisted: allAssisted });
-
-window.handleDelete = async (id) => {
-    if (confirm("Tem certeza que deseja remover este assistido?")) {
-        try {
-            await deleteDoc(doc(db, "pautas", currentPautaId, "attendances", id));
-            showNotification("Removido.", "success");
-        } catch (e) { showNotification("Erro ao remover.", "error"); }
-    }
-};
-
-window.handleMoveToAttendance = async (id) => {
-    // Exemplo: Pergunta a sala ou usa uma padrão
-    const room = prompt("Informe a Sala (opcional):", "1");
+// Funções Globais para o HTML acessar
+window.handleDetails = (id) => openDetailsModal({ assistedId: id, pautaId: currentPautaId, allAssisted });
+window.moveTo = async (id, status) => {
     try {
         await updateDoc(doc(db, "pautas", currentPautaId, "attendances", id), {
-            status: 'emAtendimento',
-            inAttendanceTime: new Date().toISOString(),
-            room: room || '',
+            status: status,
+            updatedAt: new Date().toISOString(),
             attendant: currentUserName
         });
-    } catch (e) { showNotification("Erro ao mover.", "error"); }
+    } catch(e) { showNotification("Erro ao mover.", "error"); }
 };
 
-window.handleFinish = async (id) => {
-    if (confirm("Finalizar atendimento?")) {
-        try {
-            await updateDoc(doc(db, "pautas", currentPautaId, "attendances", id), {
-                status: 'atendido',
-                attendedTime: new Date().toISOString()
-            });
-        } catch (e) { showNotification("Erro ao finalizar.", "error"); }
-    }
-};
-
-// --- 5. DRAG AND DROP LOGIC (MELHORADO) ---
-
-const columns = document.querySelectorAll('.column-content');
-columns.forEach(col => {
-    col.addEventListener('dragover', e => {
-        e.preventDefault();
-        // Feedback visual da zona de drop
-        col.classList.add('bg-green-50', 'border-dashed', 'border-2', 'border-green-300');
-    });
-
-    col.addEventListener('dragleave', () => {
-        col.classList.remove('bg-green-50', 'border-dashed', 'border-2', 'border-green-300');
-    });
-
-    col.addEventListener('drop', async (e) => {
-        e.preventDefault();
-        // Remove estilos de feedback
-        col.classList.remove('bg-green-50', 'border-dashed', 'border-2', 'border-green-300');
-        
-        const id = e.dataTransfer.getData('text/plain');
-        const newStatus = col.dataset.status; // Certifique-se que suas divs de coluna têm data-status="aguardando", etc.
-        
-        if (!id || !newStatus) return;
-
-        const updates = { status: newStatus, updatedAt: new Date().toISOString() };
-        
-        // Regras de negócio ao mover
-        if (newStatus === 'emAtendimento') {
-            updates.inAttendanceTime = new Date().toISOString();
-            updates.attendant = currentUserName;
-        } else if (newStatus === 'atendido') {
-            updates.attendedTime = new Date().toISOString();
-        } else if (newStatus === 'aguardando') {
-             // Se voltar para aguardando, reseta quem estava atendendo
-             updates.attendant = null;
-             updates.room = null;
-        }
-
-        try {
-            await updateDoc(doc(db, "pautas", currentPautaId, "attendances", id), updates);
-        } catch (err) {
-            console.error(err);
-            showNotification("Erro ao mover.", "error");
-        }
-    });
-});
-
-
-// --- 6. FORMULÁRIOS E MODAIS (EVENT LISTENERS) ---
-
-function setupGlobalEventListeners() {
-    
+function setupEventListeners() {
     // Login
     document.getElementById('login-form')?.addEventListener('submit', async (e) => {
         e.preventDefault();
-        const btn = e.target.querySelector('button');
-        btn.disabled = true; btn.textContent = "Entrando...";
-        const res = await loginUser(
-            document.getElementById('login-email').value,
-            document.getElementById('login-password').value
-        );
-        btn.disabled = false; btn.textContent = "Entrar";
-        if (!res.success) showNotification("Erro no login: " + res.error.message, "error");
+        const res = await loginUser(document.getElementById('login-email').value, document.getElementById('login-password').value);
+        if(!res.success) showNotification("Erro Login: " + res.error.message, "error");
     });
 
     // Cadastro
     document.getElementById('register-form')?.addEventListener('submit', async (e) => {
         e.preventDefault();
-        const res = await registerUser(
-            document.getElementById('reg-name').value,
-            document.getElementById('reg-email').value,
-            document.getElementById('reg-password').value
-        );
-        if (res.success) showNotification("Cadastro realizado! Aguarde aprovação.", "success");
-        else showNotification("Erro: " + res.error.message, "error");
+        const res = await registerUser(document.getElementById('reg-name').value, document.getElementById('reg-email').value, document.getElementById('reg-password').value);
+        if(res.success) showNotification("Conta criada! Aguarde aprovação.", "success");
+        else showNotification("Erro Cadastro: " + res.error.message, "error");
     });
+    
+    // Navegação Auth
+    document.getElementById('show-register-link')?.addEventListener('click', () => showScreen('register'));
+    document.getElementById('back-to-login-link')?.addEventListener('click', () => showScreen('login'));
+    document.getElementById('logout-selection-btn')?.addEventListener('click', () => { signOut(auth); location.reload(); });
 
-    // Logout
-    document.getElementById('logout-btn')?.addEventListener('click', async () => {
-        await logoutUser();
-        location.reload();
-    });
-
-    // Criar Pauta
+    // Nova Pauta
+    document.getElementById('create-new-pauta-btn')?.addEventListener('click', () => document.getElementById('create-pauta-modal').classList.remove('hidden'));
     document.getElementById('create-pauta-form')?.addEventListener('submit', async (e) => {
         e.preventDefault();
         const name = document.getElementById('new-pauta-name').value;
         const date = document.getElementById('new-pauta-date').value;
-        await createPauta(name, date, true);
-        document.getElementById('create-pauta-modal').classList.add('hidden');
+        try {
+            await addDoc(collection(db, "pautas"), {
+                name, date, owner: currentUserId, members: [currentUserId], createdAt: new Date().toISOString()
+            });
+            document.getElementById('create-pauta-modal').classList.add('hidden');
+            loadUserPautas();
+            showNotification("Pauta criada!", "success");
+        } catch(e) { showNotification("Erro ao criar pauta.", "error"); }
     });
 
     // Adicionar Assistido
+    document.getElementById('add-assisted-btn')?.addEventListener('click', () => document.getElementById('add-assisted-modal').classList.remove('hidden'));
     document.getElementById('add-assisted-form')?.addEventListener('submit', async (e) => {
         e.preventDefault();
-        if (!currentPautaId) return;
-        
-        const name = document.getElementById('assisted-name').value;
-        const subject = document.getElementById('assisted-subject').value;
-        const priority = document.getElementById('assisted-priority').value;
-
+        if(!currentPautaId) return;
         try {
             await addDoc(collection(db, "pautas", currentPautaId, "attendances"), {
-                name, subject, priority,
+                name: document.getElementById('assisted-name').value,
+                subject: document.getElementById('assisted-subject').value,
+                priority: document.getElementById('assisted-priority').value,
                 status: 'aguardando',
-                arrivalTime: new Date().toISOString(),
-                isConfirmed: false
+                createdAt: serverTimestamp(),
+                arrivalTime: new Date().toISOString()
             });
-            showNotification("Adicionado com sucesso!", "success");
             document.getElementById('add-assisted-modal').classList.add('hidden');
             e.target.reset();
-        } catch (err) {
-            showNotification("Erro ao adicionar.", "error");
-        }
+            showNotification("Adicionado!", "success");
+        } catch(e) { showNotification("Erro ao adicionar.", "error"); }
     });
 
-    // Botão de Estatísticas
-    document.getElementById('stats-btn')?.addEventListener('click', () => {
-        if (!currentPautaId) return;
-        renderStatisticsModal(allAssisted, false, currentPautaData?.name || 'Pauta');
-    });
-
-    // Botão Voltar para Pautas
+    // Voltar
     document.getElementById('back-to-pautas-btn')?.addEventListener('click', () => {
-        unsubscribeFromAttendances && unsubscribeFromAttendances();
+        if(unsubscribeFromAttendances) unsubscribeFromAttendances();
         showScreen('pauta-selection');
-        loadUserPautas();
-    });
-    
-    // Botão Notas (Anotações)
-    const notesModal = document.getElementById('notes-modal');
-    const notesText = document.getElementById('pauta-notes');
-    
-    document.getElementById('notes-btn')?.addEventListener('click', () => {
-        notesText.value = localStorage.getItem(`notes_${currentPautaId}`) || "";
-        notesModal.classList.remove('hidden');
     });
 
-    document.getElementById('save-notes-btn')?.addEventListener('click', () => {
-        localStorage.setItem(`notes_${currentPautaId}`, notesText.value);
-        showNotification("Anotações salvas localmente.", "success");
-        notesModal.classList.add('hidden');
-    });
-
-    document.getElementById('send-notes-email-btn')?.addEventListener('click', async () => {
-        const content = notesText.value;
-        if(!content) return showNotification("Anotação vazia.", "warning");
-        if(window.emailjs) {
-             try {
-                 await emailjs.send("service_r1nxe6a", "template_ynrwaxt", {
-                     message: content,
-                     email_to: auth.currentUser.email,
-                     name: currentUserName
-                 });
-                 showNotification("Enviado para seu email.", "success");
-             } catch(e) { console.error(e); showNotification("Erro ao enviar.", "error"); }
-        }
+    // Estatísticas
+    document.getElementById('stats-btn')?.addEventListener('click', () => renderStatisticsModal(allAssisted, false, currentPautaData.name));
+    
+    // Drag & Drop nas Colunas
+    document.querySelectorAll('.column-content').forEach(col => {
+        col.ondragover = e => { e.preventDefault(); col.classList.add('bg-gray-200'); };
+        col.ondragleave = () => col.classList.remove('bg-gray-200');
+        col.ondrop = (e) => {
+            col.classList.remove('bg-gray-200');
+            const id = e.dataTransfer.getData('text/plain');
+            window.moveTo(id, col.dataset.status);
+        };
     });
     
-    // Search Filter
-    document.getElementById('global-search')?.addEventListener('input', (e) => {
-        const term = normalizeText(e.target.value);
-        if(!term) {
-            renderKanban(allAssisted);
-            return;
-        }
-        const filtered = allAssisted.filter(a => normalizeText(a.name).includes(term) || normalizeText(a.subject).includes(term));
-        renderKanban(filtered);
+    // Fechar Modais (Botões X)
+    document.querySelectorAll('.close-modal-btn').forEach(btn => {
+        btn.onclick = () => btn.closest('.fixed').classList.add('hidden');
     });
-
-    // Setup do Autocomplete de Assuntos (Datalist)
-    const datalist = document.getElementById('subject-list');
-    if (datalist) {
-        flatSubjects.forEach(sub => {
-            const opt = document.createElement('option');
-            opt.value = sub.value;
-            datalist.appendChild(opt);
-        });
-    }
 }
 
-function updateStatisticsCounters(list) {
-    // Atualiza contadores simples na tela se existirem
-    const counts = {
-        'count-aguardando': list.filter(a=>a.status==='aguardando').length,
-        'count-atendimento': list.filter(a=>a.status==='emAtendimento').length,
-        'count-atendido': list.filter(a=>a.status==='atendido').length
-    };
-    Object.entries(counts).forEach(([id, val]) => {
-        const el = document.getElementById(id);
-        if(el) el.textContent = val;
-    });
+function updateCounters(list) {
+    document.getElementById('count-aguardando').innerText = list.filter(a=>a.status==='aguardando').length;
+    document.getElementById('count-atendimento').innerText = list.filter(a=>a.status==='emAtendimento').length;
+    document.getElementById('count-atendido').innerText = list.filter(a=>a.status==='atendido').length;
+}
+
+function setupDatalist() {
+    const dl = document.getElementById('subject-list');
+    if(dl && flatSubjects) {
+        flatSubjects.forEach(s => {
+            const opt = document.createElement('option');
+            opt.value = s.value;
+            dl.appendChild(opt);
+        });
+    }
 }
