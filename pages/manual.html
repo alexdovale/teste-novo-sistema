@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manual do Usuário - SIGEP</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; color: #334155; }
+        /* Estilos para a barra de rolagem fina */
+        aside::-webkit-scrollbar { width: 5px; }
+        aside::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        h1, h2, h3 { color: #1e293b; }
+        .wiki-link { @apply block px-4 py-2 rounded-lg text-sm text-gray-600 hover:bg-green-50 hover:text-green-700 transition; }
+        .wiki-link.active { @apply bg-green-100 text-green-800 font-bold; }
+        .section-title { @apply text-2xl font-bold border-b pb-2 mb-4 mt-8 text-green-800; }
+        .sub-title { @apply text-lg font-bold mt-6 mb-2 text-gray-800; }
+        p { @apply mb-4 leading-relaxed; }
+        ul { @apply list-disc ml-6 mb-4 space-y-1; }
+        ol { @apply list-decimal ml-6 mb-4 space-y-1; }
+        code { @apply bg-gray-100 text-red-600 px-1 rounded text-sm font-mono; }
+        .note-box { @apply bg-blue-50 border-l-4 border-blue-500 p-4 text-blue-700 mb-4 text-sm; }
+        .warning-box { @apply bg-yellow-50 border-l-4 border-yellow-500 p-4 text-yellow-800 mb-4 text-sm; }
+    </style>
+</head>
+<body class="flex flex-col h-screen overflow-hidden">
+
+    <!-- Cabeçalho -->
+    <header class="bg-white border-b h-16 flex items-center justify-between px-6 shadow-sm z-10 flex-shrink-0">
+        <div class="flex items-center gap-3">
+            <div class="bg-green-600 text-white p-2 rounded-lg">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>
+            </div>
+            <h1 class="text-xl font-bold tracking-tight">SIGEP <span class="text-gray-400 font-normal">| Manual do Usuário</span></h1>
+        </div>
+        <button onclick="window.close()" class="text-sm font-semibold text-gray-500 hover:text-red-600 flex items-center gap-1">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+            Fechar
+        </button>
+    </header>
+
+    <div class="flex flex-1 overflow-hidden">
+        
+        <!-- Sidebar de Navegação (Menu) -->
+        <aside class="w-64 bg-white border-r overflow-y-auto hidden md:block flex-shrink-0 p-4">
+            <nav class="space-y-1">
+                <p class="px-4 text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Introdução</p>
+                <a href="#inicio" class="wiki-link">Visão Geral</a>
+                <a href="#acesso" class="wiki-link">Acesso e Cadastro</a>
+
+                <p class="px-4 text-xs font-bold text-gray-400 uppercase tracking-wider mt-6 mb-2">Gestão de Pautas</p>
+                <a href="#criar-pauta" class="wiki-link">Criar e Entrar</a>
+                <a href="#configuracoes" class="wiki-link">Configurações</a>
+
+                <p class="px-4 text-xs font-bold text-gray-400 uppercase tracking-wider mt-6 mb-2">Fluxo de Atendimento</p>
+                <a href="#adicionar-assistido" class="wiki-link">Adicionar Assistido</a>
+                <a href="#kanban" class="wiki-link">Quadro Kanban</a>
+                <a href="#prioridades" class="wiki-link">Regras de Prioridade</a>
+
+                <p class="px-4 text-xs font-bold text-gray-400 uppercase tracking-wider mt-6 mb-2">Documentação</p>
+                <a href="#checklist" class="wiki-link">Checklist de Documentos</a>
+                <a href="#dados-reu" class="wiki-link">Dados do Réu</a>
+                <a href="#despesas" class="wiki-link">Planilha de Despesas</a>
+                
+                <p class="px-4 text-xs font-bold text-gray-400 uppercase tracking-wider mt-6 mb-2">Ferramentas Avançadas</p>
+                <a href="#estatisticas" class="wiki-link">Estatísticas (PDF)</a>
+                <a href="#tv-publica" class="wiki-link">Painel de TV</a>
+                <a href="#delegacao" class="wiki-link">Delegação Remota</a>
+                <a href="#anotacoes" class="wiki-link">Anotações e E-mail</a>
+            </nav>
+        </aside>
+
+        <!-- Área de Conteúdo -->
+        <main class="flex-1 overflow-y-auto p-8 scroll-smooth" id="content-area">
+            
+            <!-- SEÇÃO INICIAL -->
+            <section id="inicio" class="mb-12">
+                <h2 class="text-3xl font-bold text-gray-900 mb-4">Bem-vindo ao SIGEP</h2>
+                <p class="text-lg text-gray-600">O <strong>SIGEP (Sistema de Gerenciamento de Pauta)</strong> é a solução definitiva para organizar o fluxo de atendimento da Defensoria Pública. Projetado para substituir planilhas manuais e filas desordenadas, ele oferece um controlo visual e em tempo real de cada etapa do processo jurídico.</p>
+                
+                <div class="note-box">
+                    <strong>Dica de Navegação:</strong> Use o menu lateral para ir direto ao tópico desejado. Em dispositivos móveis, o conteúdo é apresentado em fluxo contínuo.
+                </div>
+            </section>
+
+            <!-- SEÇÃO ACESSO -->
+            <section id="acesso" class="mb-12">
+                <h2 class="section-title">Acesso e Cadastro</h2>
+                <p>O sistema possui controle de acesso rigoroso para garantir a segurança dos dados sensíveis.</p>
+                
+                <h3 class="sub-title">1. Primeiro Acesso</h3>
+                <ol>
+                    <li>Na tela de login, clique no link <strong>"Não tem conta? Cadastre-se"</strong>.</li>
+                    <li>Informe seu <strong>Nome Completo</strong>, <strong>E-mail Institucional</strong> e crie uma senha forte (mínimo 6 caracteres).</li>
+                    <li>Ao confirmar, sua conta entrará em estado de <code>Aprovação Pendente</code>.</li>
+                </ol>
+
+                <div class="warning-box">
+                    <strong>Importante:</strong> Você não conseguirá acessar as pautas até que um Administrador aprove o seu cadastro no painel de controle.
+                </div>
+
+                <h3 class="sub-title">2. Recuperação de Senha</h3>
+                <p>Esqueceu a senha? Na tela de login, clique em "Esqueceu a senha?". Digite seu e-mail e enviaremos um link seguro para redefinição.</p>
+            </section>
+
+            <!-- SEÇÃO PAUTAS -->
+            <section id="criar-pauta" class="mb-12">
+                <h2 class="section-title">Gestão de Pautas</h2>
+                <p>A "Pauta" funciona como uma sala virtual ou um evento diário (ex: "Plantão Cível 25/10").</p>
+
+                <h3 class="sub-title">Criando uma Pauta</h3>
+                <ul>
+                    <li>No painel inicial, clique em <strong>"+ Nova Pauta"</strong>.</li>
+                    <li><strong>Nome:</strong> Dê um nome descritivo (Ex: "Atendimento Família - Manhã").</li>
+                    <li><strong>Data:</strong> Selecione a data de referência.</li>
+                    <li><strong>Visibilidade:</strong> Se marcar como "Pública", o link de acompanhamento funcionará para qualquer pessoa. Se "Privada", apenas membros podem ver.</li>
+                </ul>
+                <p>Quem cria a pauta torna-se automaticamente o <strong>Dono (Owner)</strong> e possui permissões totais sobre ela.</p>
+            </section>
+
+            <!-- SEÇÃO FLUXO -->
+            <section id="adicionar-assistido" class="mb-12">
+                <h2 class="section-title">Fluxo de Atendimento</h2>
+                
+                <h3 class="sub-title" id="adicionar-assistido">1. Triagem (Adicionar Assistido)</h3>
+                <p>Use o botão verde <strong>"+ Adicionar"</strong> para registrar uma nova chegada. O sistema pedirá:</p>
+                <ul>
+                    <li><strong>Nome:</strong> Nome do assistido.</li>
+                    <li><strong>Assunto:</strong> Comece a digitar para ver as sugestões (ex: "Divórcio", "Alimentos"). O sistema possui uma base de dados com mais de 50 tipos de ações.</li>
+                    <li><strong>Prioridade:</strong> Fundamental para o ordenamento da fila.</li>
+                </ul>
+
+                <h3 class="sub-title" id="kanban">2. O Quadro Kanban</h3>
+                <p>A tela principal é dividida em colunas que representam o status do assistido. Você pode <strong>clicar e arrastar</strong> os cartões entre as colunas:</p>
+                
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                    <div class="bg-yellow-50 p-4 rounded border border-yellow-200">
+                        <span class="font-bold text-yellow-800 text-lg">⏳ Aguardando</span>
+                        <p class="text-sm mt-2">Fila de espera. O sistema organiza automaticamente: primeiro as <strong>Prioridades</strong>, depois a ordem de chegada.</p>
+                    </div>
+                    <div class="bg-blue-50 p-4 rounded border border-blue-200">
+                        <span class="font-bold text-blue-800 text-lg">🏃 Em Atendimento</span>
+                        <p class="text-sm mt-2">Arraste para cá quando chamar o assistido. O sistema registrará a hora de início e o seu nome como atendente.</p>
+                    </div>
+                    <div class="bg-green-50 p-4 rounded border border-green-200">
+                        <span class="font-bold text-green-800 text-lg">✅ Atendido</span>
+                        <p class="text-sm mt-2">Ao finalizar, mova para cá. O tempo total de atendimento é calculado e salvo nas estatísticas.</p>
+                    </div>
+                </div>
+
+                <div class="mt-4">
+                    <h3 class="sub-title" id="prioridades">Regra de Prioridades</h3>
+                    <p>A coluna "Aguardando" segue esta ordem rigorosa de classificação:</p>
+                    <ol class="list-decimal ml-6 font-semibold text-gray-700">
+                        <li class="text-red-600">URGENTE (Topo da fila)</li>
+                        <li class="text-green-600">Prioridade Máxima</li>
+                        <li class="text-orange-500">Prioridade Média</li>
+                        <li class="text-gray-500">Prioridade Mínima / Normal</li>
+                    </ol>
+                </div>
+            </section>
+
+            <!-- SEÇÃO DOCUMENTAÇÃO -->
+            <section id="checklist" class="mb-12">
+                <h2 class="section-title">Documentação e Checklist</h2>
+                <p>Esta é uma das ferramentas mais poderosas do SIGEP. Ao clicar no ícone 👁️ (Detalhes) num cartão, você acessa o painel do assistido.</p>
+
+                <h3 class="sub-title">1. Checklist Inteligente</h3>
+                <p>Baseado no "Assunto" escolhido na triagem, o sistema carrega a lista exata de documentos necessários (Ex: Se for "Divórcio", pede Certidão de Casamento; se for "Alimentos", pede Certidão de Nascimento).</p>
+                <ul>
+                    <li>Marque os documentos apresentados.</li>
+                    <li>Para cada documento, você pode especificar o formato: <strong>Físico</strong> (papel) ou <strong>Digital</strong> (PDF/Foto).</li>
+                </ul>
+
+                <h3 class="sub-title" id="dados-reu">2. Dados da Parte Contrária (Réu)</h3>
+                <p>Logo abaixo do checklist, há um formulário para cadastrar os dados do Réu (Nome, CPF, Endereço). Esses dados são salvos e saem no relatório final.</p>
+
+                <h3 class="sub-title" id="despesas">3. Planilha de Despesas</h3>
+                <p>Para ações de <strong>Alimentos</strong> ou <strong>Divórcio</strong>, o sistema exibe automaticamente uma tabela para cálculo de despesas (Alimentação, Moradia, Saúde, etc). O total é somado automaticamente.</p>
+
+                <div class="note-box">
+                    <strong>Geração de PDF:</strong> Ao final do atendimento, clique no botão <strong>"Baixar PDF"</strong> no rodapé do modal. O sistema gera um documento completo com o checklist, dados do réu e observações para imprimir ou salvar.
+                </div>
+            </section>
+
+            <!-- SEÇÃO FERRAMENTAS -->
+            <section id="estatisticas" class="mb-12">
+                <h2 class="section-title">Ferramentas Avançadas</h2>
+
+                <h3 class="sub-title">📊 Estatísticas e Relatórios</h3>
+                <p>Clique no botão <strong>Estatísticas</strong> no menu superior. O sistema gera gráficos em tempo real:</p>
+                <ul>
+                    <li>Total de atendimentos vs. Faltosos.</li>
+                    <li>Tempo médio de duração dos atendimentos.</li>
+                    <li>Contagem por tipo de ação (Ex: 10 Divórcios, 5 Guardas).</li>
+                    <li>Produtividade por colaborador.</li>
+                </ul>
+                <p>Você pode exportar um <strong>Relatório Gerencial em PDF</strong> contendo todos esses dados para prestação de contas.</p>
+
+                <h3 class="sub-title" id="tv-publica">📺 Painel de TV (Link Público)</h3>
+                <p>Ideal para recepções. Clique no ícone de <strong>Compartilhar (Link)</strong>. Isso gera uma URL segura que:</p>
+                <ul>
+                    <li>Não exige login.</li>
+                    <li>Mostra apenas o <strong>Primeiro Nome</strong> e a inicial do sobrenome do assistido (proteção de dados).</li>
+                    <li>Exibe claramente quem está "Aguardando" e quem está "Em Atendimento".</li>
+                </ul>
+
+                <h3 class="sub-title" id="delegacao">📧 Delegação Remota (E-mail)</h3>
+                <p>Se precisar que outro colega finalize um atendimento (ex: um psicólogo ou outro defensor em outra sala), use a opção "Enviar para Colega".</p>
+                <p>O sistema envia um e-mail com um <strong>Link Exclusivo</strong>. O colega pode clicar nesse link e finalizar o atendimento no celular dele, sem precisar logar no sistema completo.</p>
+                
+                <h3 class="sub-title" id="anotacoes">📝 Anotações Rápidas</h3>
+                <p>Precisa anotar algo sobre a pauta inteira? Use o botão <strong>"Notas"</strong>. As anotações são salvas localmente no seu navegador, e você pode enviá-las para o seu próprio e-mail como lembrete ao final do dia.</p>
+            </section>
+
+            <footer class="mt-20 pt-6 border-t text-center text-sm text-gray-400 pb-10">
+                <p>Manual do Usuário SIGEP - Versão 3.0 (Wiki Integrada)</p>
+                <p class="mt-2">&copy; <script>document.write(new Date().getFullYear())</script> Sistema de Gestão Jurídica</p>
+            </footer>
+
+        </main>
+    </div>
+
+    <script>
+        // Script para navegação fluida e destaque do menu ativo
+        const sections = document.querySelectorAll('section');
+        const navLinks = document.querySelectorAll('.wiki-link');
+        const contentArea = document.getElementById('content-area');
+
+        // Scroll Spy
+        contentArea.addEventListener('scroll', () => {
+            let current = '';
+            sections.forEach(section => {
+                const sectionTop = section.offsetTop;
+                if (contentArea.scrollTop >= (sectionTop - 150)) {
+                    current = section.getAttribute('id');
+                }
+            });
+            navLinks.forEach(link => {
+                link.classList.remove('active');
+                if (link.getAttribute('href').includes(current)) {
+                    link.classList.add('active');
+                }
+            });
+        });
+    </script>
+</body>
+</html>
