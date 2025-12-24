@@ -1,6 +1,4 @@
-// assets/js/assuntos.js
-// Este arquivo contém APENAS os dados. A lógica visual fica no index.html.
-
+// Exportamos a árvore para ser usada em outros arquivos
 export const subjectTree = [
     { text: "Orientação Jurídica", description: "Prestação de informações e esclarecimentos gerais sobre direitos, deveres e as leis, auxiliando o cidadão a entender sua situação e as possíveis soluções legais." },
     { text: "Atendimento Jurídico Integral e Gratuito", description: "O serviço principal da Defensoria, oferecido a pessoas que não possuem condições financeiras para contratar um advogado, abrangendo todas as etapas e necessidades legais." },
@@ -51,7 +49,7 @@ export const subjectTree = [
                 { text: "Procedimento de Fixação dos Limites da Curatela (antiga interdição)", description: "Processo para instituir a curatela, definindo os atos para os quais a pessoa precisará de assistência." },
                 { text: "Levantamento de Curatela", description: "Ação para encerrar a curatela quando a causa da incapacidade cessa ou a pessoa recupera a autonomia." }
             ]},
-            { text: "Tutela", description: "Medida judicial que nomeia um tutor para cuidar de um menor que não tem pais ou cujos pais perderam o poder familiar." },
+            { text: "Tutela", description: "Medida judicial que nomeia um tutor para cuidar de um menor que não tem pais ou cujos pais que perderam o poder familiar." },
             { text: "Adoção", description: "Processo judicial para estabelecer um novo vínculo de filiação, em que uma criança ou adolescente se torna filho legal de pais adotivos." }
         ]
     },
