@@ -1,0 +1,26 @@
+Logs e arquivos de sistema
+
+*.log
+.DS_Store
+Thumbs.db
+
+Pastas de IDEs/Editores (não precisa subir configurações do seu VS Code)
+
+.vscode/
+.idea/
+
+Dependências (caso você use npm no futuro, já deixa protegido)
+
+node_modules/
+package-lock.json
+yarn.lock
+
+Arquivos de Build (se usar bundlers no futuro)
+
+dist/
+build/
+
+Variáveis de Ambiente (Segurança)
+
+.env
+.env.local
